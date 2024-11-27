@@ -6,8 +6,10 @@ const scoreEl = document.querySelector('#scoreEl')
 
 const devicePixelRatio = window.devicePixelRatio || 1
 
-canvas.width = innerWidth * devicePixelRatio
-canvas.height = innerHeight * devicePixelRatio
+canvas.width = 1024 * devicePixelRatio
+canvas.height = 576 * devicePixelRatio
+
+c.scale(devicePixelRatio, devicePixelRatio)
 
 const x = canvas.width / 2
 const y = canvas.height / 2
@@ -40,7 +42,7 @@ socket.on('updatePlayers', (backEndPlayers) => {
   for(const id in backEndPlayers) {
     const backEndPlayer = backEndPlayers[id]
     if(!frontEndPlayers[id]) {
-      frontEndPlayers[id] = new Player({x: backEndPlayer.x, y: backEndPlayer.y, radius: 10, color: backEndPlayer.color})
+      frontEndPlayers[id] = new Player({x: backEndPlayer.x, y: backEndPlayer.y, radius: 10, color: backEndPlayer.color, username: backEndPlayer.username })
       document.querySelector('#playerLabels').innerHTML += `<div data-id ="${id}" data-score="${backEndPlayer.score}">${backEndPlayer.username}: ${backEndPlayer.score}</div>`
     } else {
       document.querySelector(`div[data-id="${id}"]`).innerHTML = `${backEndPlayer.username}: ${backEndPlayer.score}`
@@ -63,19 +65,25 @@ socket.on('updatePlayers', (backEndPlayers) => {
         parentDiv.appendChild(div)
       })
 
+      frontEndPlayers[id].target = {
+        x: backEndPlayer.x,
+        y: backEndPlayer.y
+      }
+
       if (id == socket.id) {
         // if a player exists
-        frontEndPlayers[id].x = backEndPlayer.x
-        frontEndPlayers[id].y = backEndPlayer.y
+        // frontEndPlayers[id].x = backEndPlayer.x
+        // frontEndPlayers[id].y = backEndPlayer.y
         
         const lastBackendInputIndex = playerInputs.findIndex(input => {
           return backEndPlayer.sequenceNumber === input.sequenceNumber
         })
         if (lastBackendInputIndex > -1)
           playerInputs.splice(0, lastBackendInputIndex + 1)
-        playerInputs.forEach(input => {
-          frontEndPlayers[id].x += input.dx
-          frontEndPlayers[id].y += input.dy 
+        
+        playerInputs.forEach((input) => {
+          frontEndPlayers[id].target.x += input.dx
+          frontEndPlayers[id].target.y += input.dy 
         })
     } else {
       //for other players 
@@ -107,11 +115,18 @@ let animationId
 let score = 0
 function animate() {
   animationId = requestAnimationFrame(animate)
-  c.fillStyle = 'rgba(0, 0, 0, 0.1)'
-  c.fillRect(0, 0, canvas.width, canvas.height)
+  // c.fillStyle = 'rgba(0, 0, 0, 0.1)'
+  c.clearRect(0, 0, canvas.width, canvas.height)
 
     for (const id in frontEndPlayers) {
       const frontEndPlayer = frontEndPlayers[id]
+
+      if (frontEndPlayer.target) {
+        //linear interpolation for other players
+        frontEndPlayers[id].x += (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * 0.5
+        frontEndPlayers[id].y += (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * 0.5
+      }
+
       frontEndPlayer.draw()
     }
 
@@ -143,31 +158,31 @@ const keys = {
   }
 }
 
-const SPEED = 10
+const SPEED = 5
 let sequenceNumber = 0
 setInterval(() => {
   if (keys.w.pressed) {
     sequenceNumber++
     playerInputs.push({sequenceNumber, dx: 0, dy:-SPEED })
-    frontEndPlayers[socket.id].y -= SPEED
+    // frontEndPlayers[socket.id].y -= SPEED
     socket.emit('keydown', {keyCode:'KeyW', sequenceNumber})
   }
   if (keys.a.pressed) {
     sequenceNumber++
     playerInputs.push({sequenceNumber, dx: -SPEED, dy:0})
-    frontEndPlayers[socket.id].x -= SPEED
+    // frontEndPlayers[socket.id].x -= SPEED
     socket.emit('keydown', {keyCode:'KeyA', sequenceNumber})
   }
   if (keys.s.pressed) {
     sequenceNumber++
     playerInputs.push({sequenceNumber, dx: 0, dy:SPEED })
-    frontEndPlayers[socket.id].y += SPEED
+    // frontEndPlayers[socket.id].y += SPEED
     socket.emit('keydown', {keyCode:'KeyS', sequenceNumber})
   }
   if (keys.d.pressed) {
     sequenceNumber++
     playerInputs.push({sequenceNumber, dx:SPEED, dy:0})
-    frontEndPlayers[socket.id].x += SPEED
+    // frontEndPlayers[socket.id].x += SPEED
     socket.emit('keydown', {keyCode:'KeyD', sequenceNumber})
   }
 }, 15)
@@ -211,5 +226,5 @@ window.addEventListener('keyup', (event) => {
 document.querySelector('#usernameForm').addEventListener('submit', (event) => {
   event.preventDefault()
   document.querySelector('#usernameForm').style.display = 'none'
-  socket.emit('initGame', {width: canvas.width, height: canvas.height, devicePixelRatio, username: document.querySelector('#usernameInput').value})
+  socket.emit('initGame', {width: canvas.width, height: canvas.height, username: document.querySelector('#usernameInput').value})
 })
