@@ -15,15 +15,21 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html')
 })
 
+const MAP_WIDTH = 2048;
+const MAP_HEIGHT = 1152;
+
 const backEndPlayers = {}
 const backEndProjectiles = {}
 const SPEED = 5
 const RADIUS = 10
 const PROJECTILE_RADIUS = 5
+const PROJECTILE_SPEED = 7
 let projectileId = 0
 
 io.on('connection', (socket) => {
   console.log('a user connected');
+
+  socket.emit('initialize', { speed: SPEED, mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT });
 
   io.emit('updatePlayers', backEndPlayers)
 
@@ -32,8 +38,8 @@ io.on('connection', (socket) => {
     projectileId++;
 
     const velocity = {
-      x: Math.cos(angle) * 5,
-      y: Math.sin(angle) * 5
+      x: Math.cos(angle) * PROJECTILE_SPEED,
+      y: Math.sin(angle) * PROJECTILE_SPEED
     }
 
     backEndProjectiles[projectileId] = {
@@ -72,35 +78,22 @@ io.on('connection', (socket) => {
     const backEndPlayer = backEndPlayers[socket.id]
 
     if (!backEndPlayers[socket.id]) return
-    
+
     backEndPlayers[socket.id].sequenceNumber = sequenceNumber
-    switch(keyCode) {
+    switch (keyCode) {
       case 'KeyW':
-        backEndPlayers[socket.id].y -= SPEED
-        break
+        backEndPlayer.y = Math.max(backEndPlayer.y - SPEED, backEndPlayer.radius);
+        break;
       case 'KeyA':
-        backEndPlayers[socket.id].x -= SPEED
-        break    
+        backEndPlayer.x = Math.max(backEndPlayer.x - SPEED, backEndPlayer.radius);
+        break;
       case 'KeyS':
-        backEndPlayers[socket.id].y += SPEED
-        break  
+        backEndPlayer.y = Math.min(backEndPlayer.y + SPEED, MAP_HEIGHT - backEndPlayer.radius);
+        break;
       case 'KeyD':
-        backEndPlayers[socket.id].x += SPEED
-        break
+        backEndPlayer.x = Math.min(backEndPlayer.x + SPEED, MAP_WIDTH - backEndPlayer.radius);
+        break;
     }
-
-    const playerSides = {
-      left: backEndPlayer.x - backEndPlayer.radius,
-      right: backEndPlayer.x + backEndPlayer.radius,
-      top: backEndPlayer.y - backEndPlayer.radius,
-      bottom: backEndPlayer.y + backEndPlayer.radius
-
-    }
-
-    if (playerSides.left < 0) backEndPlayer.x = backEndPlayer.radius
-    if (playerSides.right > 1024) backEndPlayer.x = 1024 - backEndPlayer.radius
-    if (playerSides.top < 0) backEndPlayer.y = backEndPlayer.radius
-    if (playerSides.bottom > 576) backEndPlayer.y = 576 - backEndPlayer.radius
 
   })
 });
@@ -108,17 +101,18 @@ io.on('connection', (socket) => {
 setInterval(() => {
   // update projectile postions
   for (const id in backEndProjectiles) {
-    backEndProjectiles[id].x += backEndProjectiles[id].velocity.x
-    backEndProjectiles[id].y += backEndProjectiles[id].velocity.y
+      backEndProjectiles[id].x += backEndProjectiles[id].velocity.x
+      backEndProjectiles[id].y += backEndProjectiles[id].velocity.y
 
-    // change this to be a fixed dimension for projectile deletion 
-    if (backEndProjectiles[id].x - PROJECTILE_RADIUS >= backEndPlayers[backEndProjectiles[id].playerId]?.canvas?.width ||
-        backEndProjectiles[id].x + PROJECTILE_RADIUS <= 0 ||
-        backEndProjectiles[id].y - PROJECTILE_RADIUS >= backEndPlayers[backEndProjectiles[id].playerId]?.canvas?.height ||
-        backEndProjectiles[id].y + PROJECTILE_RADIUS <= 0 )
-      {
-        delete backEndProjectiles[id]
-        continue
+      // Remove projectiles that go outside the fixed map boundaries
+      if (
+        backEndProjectiles[id].x + PROJECTILE_RADIUS < 0 || // Left edge
+        backEndProjectiles[id].x - PROJECTILE_RADIUS > MAP_WIDTH || // Right edge
+        backEndProjectiles[id].y + PROJECTILE_RADIUS < 0 || // Top edge
+        backEndProjectiles[id].y - PROJECTILE_RADIUS > MAP_HEIGHT // Bottom edge
+      ) {
+        delete backEndProjectiles[id];
+        continue;
       }
 
       for (const playerId in backEndPlayers) {

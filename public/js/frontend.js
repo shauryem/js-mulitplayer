@@ -4,39 +4,81 @@ const c = canvas.getContext('2d')
 const socket = io()
 const scoreEl = document.querySelector('#scoreEl')
 
-const devicePixelRatio = window.devicePixelRatio || 1
+const backgroundImage = new Image();
+backgroundImage.src = '/img/webb-dark.png';
 
-canvas.width = 1024 * devicePixelRatio
-canvas.height = 576 * devicePixelRatio
+const devicePixelRatio = window.devicePixelRatio || 1;
+
+// Set canvas dimensions dynamically based on the window size
+function resizeCanvas() {
+  canvas.width = innerWidth * devicePixelRatio;
+  canvas.height = innerHeight * devicePixelRatio;
+  c.scale(devicePixelRatio, devicePixelRatio);
+}
+
+// Resize canvas on load and when the window is resized
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+canvas.width = innerWidth * devicePixelRatio
+canvas.height = innerHeight * devicePixelRatio
 
 c.scale(devicePixelRatio, devicePixelRatio)
-
-const x = canvas.width / 2
-const y = canvas.height / 2
 
 const frontEndPlayers = {}
 const frontEndProjectiles = {}
 const playerInputs = []
 
+let SPEED = 5; // Default speed, overridden by backend
+let MAP_WIDTH = 2048;
+let MAP_HEIGHT = 1152;
+
+// Set canvas dimensions dynamically based on window size
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Receive initialization data from the backend
+socket.on('initialize', ({ speed, mapWidth, mapHeight }) => {
+  SPEED = speed;
+  MAP_WIDTH = mapWidth;
+  MAP_HEIGHT = mapHeight;
+});
+
+
 
 socket.on('updateProjectiles', (backEndProjectiles) => {
   for (const id in backEndProjectiles) {
-    const backEndProjectile = backEndProjectiles[id]
+    const backEndProjectile = backEndProjectiles[id];
 
     if (!frontEndProjectiles[id]) {
-      frontEndProjectiles[id] = new Projectile({x: backEndProjectile.x, y: backEndProjectile.y, radius: 5, color: frontEndPlayers[backEndProjectile.playerId]?.color, velocity: backEndProjectile.velocity})
+      // Create new projectile and start updating locally
+      frontEndProjectiles[id] = new Projectile({
+        x: backEndProjectile.x,
+        y: backEndProjectile.y,
+        radius: 5,
+        color: frontEndPlayers[backEndProjectile.playerId]?.color,
+        velocity: { ...backEndProjectile.velocity },
+      });
     } else {
-      frontEndProjectiles[id].x += backEndProjectiles[id].velocity.x
-      frontEndProjectiles[id].y += backEndProjectiles[id].velocity.y
+      // Synchronize positions
+      frontEndProjectiles[id].x = backEndProjectile.x;
+      frontEndProjectiles[id].y = backEndProjectile.y;
     }
   }
 
-  for(const id in frontEndProjectiles) {
-    if(!backEndProjectiles[id]) {
-      delete frontEndProjectiles[id]
+  // Remove projectiles no longer in the backend
+  for (const id in frontEndProjectiles) {
+    if (!backEndProjectiles[id]) {
+      delete frontEndProjectiles[id];
     }
   }
-})
+});
+
 
 socket.on('updatePlayers', (backEndPlayers) => {
   for(const id in backEndPlayers) {
@@ -114,32 +156,47 @@ socket.on('updatePlayers', (backEndPlayers) => {
 let animationId
 let score = 0
 function animate() {
-  animationId = requestAnimationFrame(animate)
-  // c.fillStyle = 'rgba(0, 0, 0, 0.1)'
-  c.clearRect(0, 0, canvas.width, canvas.height)
+  requestAnimationFrame(animate);
 
-    for (const id in frontEndPlayers) {
-      const frontEndPlayer = frontEndPlayers[id]
+  const player = frontEndPlayers[socket.id];
+  if (!player) return;
 
-      if (frontEndPlayer.target) {
-        //linear interpolation for other players
-        frontEndPlayers[id].x += (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * 0.5
-        frontEndPlayers[id].y += (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * 0.5
-      }
+  // Calculate camera offsets dynamically
+  const cameraX = Math.max(
+    0,
+    Math.min(player.x - canvas.width / 2, MAP_WIDTH - canvas.width)
+  );
+  const cameraY = Math.max(
+    0,
+    Math.min(player.y - canvas.height / 2, MAP_HEIGHT - canvas.height)
+  );
 
-      frontEndPlayer.draw()
-    }
+  // Clear the canvas and translate based on camera position
+  c.save();
+  c.clearRect(0, 0, canvas.width, canvas.height);
+  c.translate(-cameraX, -cameraY);
 
-    for (const id in frontEndProjectiles) {
-      const frontEndProjectile = frontEndProjectiles[id]
-      frontEndProjectile.draw()
-    }
-
-    // for (let i = frontEndProjectiles.length -1; i >= 0 ; i--) {
-    //   const frontEndProjectile = frontEndProjectiles[i]
-    //   frontEndProjectile.update()
-    // }
+  // Draw the background
+  const pattern = c.createPattern(backgroundImage, 'repeat');
+  if (pattern) {
+    c.fillStyle = pattern;
+    c.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
   }
+
+  // Draw all players
+  // Draw players
+  Object.values(frontEndPlayers).forEach((p) => p.draw());
+
+  // Update and draw projectiles locally
+  Object.values(frontEndProjectiles).forEach((p) => {
+    // p.update();
+    p.draw();
+  });
+
+  c.restore();
+}
+
+
 
 animate()
 
@@ -158,34 +215,36 @@ const keys = {
   }
 }
 
-const SPEED = 5
+// const SPEED = 5
 let sequenceNumber = 0
+
 setInterval(() => {
+  const player = frontEndPlayers[socket.id];
+  if (!player) return;
+
   if (keys.w.pressed) {
-    sequenceNumber++
-    playerInputs.push({sequenceNumber, dx: 0, dy:-SPEED })
-    // frontEndPlayers[socket.id].y -= SPEED
-    socket.emit('keydown', {keyCode:'KeyW', sequenceNumber})
+    playerInputs.push({ sequenceNumber, dx: 0, dy: -SPEED });
+    player.y = Math.max(player.y - SPEED, player.radius);
+    socket.emit('keydown', { keyCode: 'KeyW', sequenceNumber });
   }
   if (keys.a.pressed) {
-    sequenceNumber++
-    playerInputs.push({sequenceNumber, dx: -SPEED, dy:0})
-    // frontEndPlayers[socket.id].x -= SPEED
-    socket.emit('keydown', {keyCode:'KeyA', sequenceNumber})
+    playerInputs.push({ sequenceNumber, dx: -SPEED, dy: 0 });
+    player.x = Math.max(player.x - SPEED, player.radius);
+    socket.emit('keydown', { keyCode: 'KeyA', sequenceNumber });
   }
   if (keys.s.pressed) {
-    sequenceNumber++
-    playerInputs.push({sequenceNumber, dx: 0, dy:SPEED })
-    // frontEndPlayers[socket.id].y += SPEED
-    socket.emit('keydown', {keyCode:'KeyS', sequenceNumber})
+    playerInputs.push({ sequenceNumber, dx: 0, dy: SPEED });
+    player.y = Math.min(player.y + SPEED, MAP_HEIGHT - player.radius);
+    socket.emit('keydown', { keyCode: 'KeyS', sequenceNumber });
   }
   if (keys.d.pressed) {
-    sequenceNumber++
-    playerInputs.push({sequenceNumber, dx:SPEED, dy:0})
-    // frontEndPlayers[socket.id].x += SPEED
-    socket.emit('keydown', {keyCode:'KeyD', sequenceNumber})
+    playerInputs.push({ sequenceNumber, dx: SPEED, dy: 0 });
+    player.x = Math.min(player.x + SPEED, MAP_WIDTH - player.radius);
+    socket.emit('keydown', { keyCode: 'KeyD', sequenceNumber });
   }
-}, 15)
+}, 15);
+
+
 
 window.addEventListener('keydown', (event) => {
   if (!frontEndPlayers[socket.id]) return
