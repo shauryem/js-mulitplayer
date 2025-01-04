@@ -1,4 +1,10 @@
+const SHOOT_INTERVAL = 250; // in ms
+let lastShootTime = 0;
+
 addEventListener('click', (event) => {
+  const currentTime = Date.now();
+  if (currentTime - lastShootTime < SHOOT_INTERVAL) return;
+
   const canvas = document.querySelector('canvas');
   const { top, left } = canvas.getBoundingClientRect();
 
@@ -16,12 +22,11 @@ addEventListener('click', (event) => {
   // Calculate the angle relative to the player's position
   const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
 
+  lastShootTime = currentTime;
   // Emit shooting event with correct angle
   socket.emit('shoot', {
     x: player.x,
     y: player.y,
     angle
   });
-
-  console.log(`Projectile angle: ${angle}`);
 });

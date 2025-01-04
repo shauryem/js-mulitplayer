@@ -20,11 +20,14 @@ const MAP_HEIGHT = 1152;
 
 const backEndPlayers = {}
 const backEndProjectiles = {}
-const SPEED = 5
-const RADIUS = 10
+const backEndDroppedSatellites = {}
+const SPEED = 3
+const RADIUS = 15
 const PROJECTILE_RADIUS = 5
-const PROJECTILE_SPEED = 7
+const PROJECTILE_SPEED = 10
+const SATELLITE_RADIUS = 20
 let projectileId = 0
+let satelliteId = 0
 
 io.on('connection', (socket) => {
   console.log('a user connected');
@@ -57,7 +60,8 @@ io.on('connection', (socket) => {
       color: `hsl(${260 * Math.random()}, 100%, 50%)`,
       sequenceNumber: 0,
       score: 0,
-      username
+      username,
+      satellites: [] // Initialize empty satellites array
     }
 
     backEndPlayers[socket.id].canvas = {
@@ -120,17 +124,48 @@ setInterval(() => {
 
         const DISTANCE = Math.hypot(backEndProjectiles[id].x - backEndPlayer.x, backEndProjectiles[id].y - backEndPlayer.y)
 
-        if (DISTANCE < PROJECTILE_RADIUS + backEndPlayer.radius && backEndProjectiles[id].playerId !== playerId) {
-          if (backEndPlayers[backEndProjectiles[id].playerId])
-            backEndPlayers[backEndProjectiles[id].playerId].score++
+        if (DISTANCE < (PROJECTILE_RADIUS + backEndPlayer.radius) && backEndProjectiles[id].playerId !== playerId) {
+          const killerId = backEndProjectiles[id].playerId;
+          const killedPlayerColor = backEndPlayer.color;
+    
+          if (backEndPlayers[killerId]) {
+            backEndPlayers[killerId].score++;
+            backEndPlayers[killerId].satellites.push({
+              color: killedPlayerColor
+            });
+      
+            io.emit('updatePlayers', backEndPlayers); // Broadcast updated players
+          }
+          
+          let droppedSatellites = backEndPlayers[playerId].satellites
+          for (let i = 0; i < droppedSatellites.length; i++) {
+            satelliteId++;
+            backEndDroppedSatellites[satelliteId] = {
+              x: backEndPlayers[playerId].x + i*25,
+              y: backEndPlayers[playerId].y + i*25,
+              satellite: droppedSatellites[i]
+            };
+          }
           delete backEndProjectiles[id]
           delete backEndPlayers[playerId]
           break
         }
       }
   }
+  for (const satelliteId in backEndDroppedSatellites) {
+    const backEndDroppedSatellite = backEndDroppedSatellites[satelliteId];
+    for (const playerId in backEndPlayers) {
+      const backEndPlayer = backEndPlayers[playerId]
+      const DISTANCE = Math.hypot(backEndDroppedSatellite.x - backEndPlayer.x, backEndDroppedSatellite.y - backEndPlayer.y)
+      if (DISTANCE < SATELLITE_RADIUS + backEndPlayer.radius) {
+        backEndPlayers[playerId].satellites.push({color: backEndDroppedSatellite.satellite.color })
+        delete backEndDroppedSatellites[satelliteId];
+      }
+    }
+  }
   io.emit('updateProjectiles', backEndProjectiles)
   io.emit('updatePlayers', backEndPlayers)
+  io.emit('updateDroppedSatellites', backEndDroppedSatellites)
 }, 15)
 server.listen(port, () => {
   console.log(`Example app listening on port ${port}`)

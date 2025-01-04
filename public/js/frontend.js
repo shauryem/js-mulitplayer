@@ -5,7 +5,7 @@ const socket = io()
 const scoreEl = document.querySelector('#scoreEl')
 
 const backgroundImage = new Image();
-backgroundImage.src = '/img/webb-dark.png';
+backgroundImage.src = '/img/squares.png';
 
 const devicePixelRatio = window.devicePixelRatio || 1;
 
@@ -27,9 +27,11 @@ c.scale(devicePixelRatio, devicePixelRatio)
 
 const frontEndPlayers = {}
 const frontEndProjectiles = {}
+const frontEndDroppedSatellites = {}
 const playerInputs = []
 
 let SPEED = 5; // Default speed, overridden by backend
+let PLAYER_RADIUS = 15;
 let MAP_WIDTH = 2048;
 let MAP_HEIGHT = 1152;
 
@@ -84,7 +86,7 @@ socket.on('updatePlayers', (backEndPlayers) => {
   for(const id in backEndPlayers) {
     const backEndPlayer = backEndPlayers[id]
     if(!frontEndPlayers[id]) {
-      frontEndPlayers[id] = new Player({x: backEndPlayer.x, y: backEndPlayer.y, radius: 10, color: backEndPlayer.color, username: backEndPlayer.username })
+      frontEndPlayers[id] = new Player({x: backEndPlayer.x, y: backEndPlayer.y, radius: PLAYER_RADIUS, color: backEndPlayer.color, username: backEndPlayer.username })
       document.querySelector('#playerLabels').innerHTML += `<div data-id ="${id}" data-score="${backEndPlayer.score}">${backEndPlayer.username}: ${backEndPlayer.score}</div>`
     } else {
       document.querySelector(`div[data-id="${id}"]`).innerHTML = `${backEndPlayer.username}: ${backEndPlayer.score}`
@@ -136,6 +138,11 @@ socket.on('updatePlayers', (backEndPlayers) => {
         ease: 'linear'
       })
     }
+
+    if (frontEndPlayers[id].satellites.length !== backEndPlayer.satellites.length) {
+      frontEndPlayers[id].updateSatellitesFromServer(backEndPlayer.satellites);
+    }
+
   }
   }
 
@@ -146,12 +153,36 @@ socket.on('updatePlayers', (backEndPlayers) => {
 
       if (id === socket.id) {
         document.querySelector('#usernameForm').style.display = 'block'
+        document.querySelector('#gameTitle').style.display = 'block'
+
       }
       delete frontEndPlayers[id]
     }
   }
   
 })
+
+socket.on('updateDroppedSatellites', (backEndDroppedSatellites) => {
+  for (const id in backEndDroppedSatellites) {
+    const backEndDroppedSatellite = backEndDroppedSatellites[id];
+
+    if (!frontEndDroppedSatellites[id]) {
+      // Create new dropped satellite and start updating locally
+      frontEndDroppedSatellites[id] = new Satellite({
+        x: backEndDroppedSatellite.x,
+        y: backEndDroppedSatellite.y,
+        color: backEndDroppedSatellite.satellite.color
+      });
+    } 
+  }
+
+  // Remove projectiles no longer in the backend
+  for (const id in frontEndDroppedSatellites) {
+    if (!backEndDroppedSatellites[id]) {
+      delete frontEndDroppedSatellites[id];
+    }
+  }
+});
 
 let animationId
 let score = 0
@@ -184,18 +215,23 @@ function animate() {
   }
 
   // Draw all players
-  // Draw players
-  Object.values(frontEndPlayers).forEach((p) => p.draw());
+  Object.values(frontEndPlayers).forEach((p) => {
+    p.updateSatellites(); // Update satellite positions
+    p.draw();
+  });
 
   // Update and draw projectiles locally
   Object.values(frontEndProjectiles).forEach((p) => {
-    // p.update();
     p.draw();
+  });
+
+  Object.values(frontEndDroppedSatellites).forEach((p) => {
+    p.draw();
+    p.update();
   });
 
   c.restore();
 }
-
 
 
 animate()
@@ -285,5 +321,6 @@ window.addEventListener('keyup', (event) => {
 document.querySelector('#usernameForm').addEventListener('submit', (event) => {
   event.preventDefault()
   document.querySelector('#usernameForm').style.display = 'none'
+  document.querySelector('#gameTitle').style.display = 'none'
   socket.emit('initGame', {width: canvas.width, height: canvas.height, username: document.querySelector('#usernameInput').value})
 })
