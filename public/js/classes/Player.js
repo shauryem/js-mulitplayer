@@ -1,11 +1,21 @@
 class Player {
-  constructor({ x, y, radius, color, username }) {
+  constructor({ x, y, radius, speed, color, username }) {
     this.x = x;
     this.y = y;
+    this.speed = speed
     this.radius = radius;
     this.color = color;
     this.username = username;
+    this.rotation = 0;
     this.satellites = [];
+    this.image = new Image(); // Create a new Image object
+    this.image.src = '/img/tdShooter.png'; // Set the image source
+    this.imageLoaded = false; // Track if the image has loaded
+
+    // Set a callback to track when the image is ready
+    this.image.onload = () => {
+      this.imageLoaded = true;
+    };
   }
 
   // Ensure satellites are evenly spaced
@@ -41,14 +51,25 @@ class Player {
     c.font = '12px sans-serif';
     c.fillStyle = 'white';
     c.fillText(this.username, this.x - 20, this.y + 35);
-    c.save();
-    c.shadowColor = this.color;
-    c.shadowBlur = 30;
-    c.beginPath();
-    c.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
-    c.fillStyle = this.color;
-    c.fill();
-    c.restore();
+
+    // Draw the player image with rotation
+    if (this.imageLoaded) {
+      const playerDimension = 250;
+      c.save();
+      // Move the origin to the player's center
+      c.translate(this.x, this.y);
+      // Rotate by the player's rotation
+      c.rotate(this.rotation);
+      // Draw the image so that its center is at (0, 0)
+      c.drawImage(
+        this.image,
+        -playerDimension / 2, 
+        -playerDimension / 2, 
+        playerDimension,
+        playerDimension
+      );
+      c.restore();
+    }
   
     // Draw satellites
     this.satellites.forEach((satellite) => {

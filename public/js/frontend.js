@@ -86,7 +86,8 @@ socket.on('updatePlayers', (backEndPlayers) => {
   for(const id in backEndPlayers) {
     const backEndPlayer = backEndPlayers[id]
     if(!frontEndPlayers[id]) {
-      frontEndPlayers[id] = new Player({x: backEndPlayer.x, y: backEndPlayer.y, radius: PLAYER_RADIUS, color: backEndPlayer.color, username: backEndPlayer.username })
+      console.log('hello')
+      frontEndPlayers[id] = new Player({x: backEndPlayer.x, y: backEndPlayer.y, speed: backEndPlayer.speed, radius: PLAYER_RADIUS, color: backEndPlayer.color, username: backEndPlayer.username })
       document.querySelector('#playerLabels').innerHTML += `<div data-id ="${id}" data-score="${backEndPlayer.score}">${backEndPlayer.username}: ${backEndPlayer.score}</div>`
     } else {
       document.querySelector(`div[data-id="${id}"]`).innerHTML = `${backEndPlayer.username}: ${backEndPlayer.score}`
@@ -116,8 +117,9 @@ socket.on('updatePlayers', (backEndPlayers) => {
 
       if (id == socket.id) {
         // if a player exists
-        // frontEndPlayers[id].x = backEndPlayer.x
-        // frontEndPlayers[id].y = backEndPlayer.y
+        frontEndPlayers[id].x = backEndPlayer.x
+        frontEndPlayers[id].y = backEndPlayer.y
+        frontEndPlayers[id].speed = backEndPlayer.speed
         
         const lastBackendInputIndex = playerInputs.findIndex(input => {
           return backEndPlayer.sequenceNumber === input.sequenceNumber
@@ -137,6 +139,8 @@ socket.on('updatePlayers', (backEndPlayers) => {
         duration: 0.015,
         ease: 'linear'
       })
+
+      frontEndPlayers[id].rotation = backEndPlayer.rotation
     }
 
     if (frontEndPlayers[id].satellites.length !== backEndPlayer.satellites.length) {
@@ -259,23 +263,23 @@ setInterval(() => {
   if (!player) return;
 
   if (keys.w.pressed) {
-    playerInputs.push({ sequenceNumber, dx: 0, dy: -SPEED });
-    player.y = Math.max(player.y - SPEED, player.radius);
+    playerInputs.push({ sequenceNumber, dx: 0, dy: -player.speed });
+    player.y = Math.max(player.y - player.speed, player.radius);
     socket.emit('keydown', { keyCode: 'KeyW', sequenceNumber });
   }
   if (keys.a.pressed) {
-    playerInputs.push({ sequenceNumber, dx: -SPEED, dy: 0 });
-    player.x = Math.max(player.x - SPEED, player.radius);
+    playerInputs.push({ sequenceNumber, dx: -player.speed, dy: 0 });
+    player.x = Math.max(player.x - player.speed, player.radius);
     socket.emit('keydown', { keyCode: 'KeyA', sequenceNumber });
   }
   if (keys.s.pressed) {
-    playerInputs.push({ sequenceNumber, dx: 0, dy: SPEED });
-    player.y = Math.min(player.y + SPEED, MAP_HEIGHT - player.radius);
+    playerInputs.push({ sequenceNumber, dx: 0, dy: player.speed });
+    player.y = Math.min(player.y + player.speed, MAP_HEIGHT - player.radius);
     socket.emit('keydown', { keyCode: 'KeyS', sequenceNumber });
   }
   if (keys.d.pressed) {
-    playerInputs.push({ sequenceNumber, dx: SPEED, dy: 0 });
-    player.x = Math.min(player.x + SPEED, MAP_WIDTH - player.radius);
+    playerInputs.push({ sequenceNumber, dx: player.speed, dy: 0 });
+    player.x = Math.min(player.x + player.speed, MAP_WIDTH - player.radius);
     socket.emit('keydown', { keyCode: 'KeyD', sequenceNumber });
   }
 }, 15);
