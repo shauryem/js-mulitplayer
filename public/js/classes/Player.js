@@ -2,17 +2,25 @@ class Player {
   constructor({ x, y, radius, speed, color, username }) {
     this.x = x;
     this.y = y;
-    this.speed = speed
+    this.speed = speed;
     this.radius = radius;
     this.color = color;
     this.username = username;
     this.rotation = 0;
     this.satellites = [];
-    this.image = new Image(); // Create a new Image object
-    this.image.src = '/img/tdShooter.png'; // Set the image source
-    this.imageLoaded = false; // Track if the image has loaded
 
-    // Set a callback to track when the image is ready
+    // Create a new Image object
+    this.image = new Image();
+
+    // Define two potential image sources
+    const imageSources = ['/img/yellowShooter.png', '/img/redShooter.png', '/img/blueShooter.png', '/img/greenShooter.png'];
+    
+    // Randomly select one of the two image sources
+    const randomIndex = Math.floor(Math.random() * imageSources.length);
+    this.image.src = imageSources[randomIndex];
+
+    // Track if the image has loaded
+    this.imageLoaded = false;
     this.image.onload = () => {
       this.imageLoaded = true;
     };
@@ -37,7 +45,6 @@ class Player {
     });
   }
   
-
   // Update satellites' positions
   updateSatellites() {
     this.satellites.forEach((satellite) => {
@@ -47,12 +54,12 @@ class Player {
 
   // Draw the player and their satellites
   draw() {
-    // Draw player
+    // Draw player's username
     c.font = '12px sans-serif';
     c.fillStyle = 'white';
     c.fillText(this.username, this.x - 20, this.y + 35);
 
-    // Draw the player image with rotation
+    // Draw the player's image with rotation if loaded
     if (this.imageLoaded) {
       const playerDimension = 250;
       c.save();

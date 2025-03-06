@@ -7,6 +7,18 @@ const scoreEl = document.querySelector('#scoreEl')
 const backgroundImage = new Image();
 backgroundImage.src = '/img/squares.png';
 
+const shooterImageYellow = new Image();
+shooterImageYellow.src = '/img/yellowShooter.png';
+
+const shooterImageBlue = new Image();
+shooterImageBlue.src = '/img/blueShooter.png';
+
+const shooterImageGreen = new Image();
+shooterImageGreen.src = '/img/greenShooter.png';
+
+const shooterImageRed = new Image();
+shooterImageRed.src = '/img/redShooter.png';
+
 const devicePixelRatio = window.devicePixelRatio || 1;
 
 // Set canvas dimensions dynamically based on the window size
@@ -158,6 +170,8 @@ socket.on('updatePlayers', (backEndPlayers) => {
       if (id === socket.id) {
         document.querySelector('#usernameForm').style.display = 'block'
         document.querySelector('#gameTitle').style.display = 'block'
+        document.querySelector('#instructionText').style.display = 'block'
+
 
       }
       delete frontEndPlayers[id]
@@ -192,7 +206,18 @@ let animationId
 let score = 0
 function animate() {
   requestAnimationFrame(animate);
+    // If the username form is visible (game hasn’t started), draw the shooter image on top.
+    if (document.querySelector('#usernameForm').style.display !== 'none') {
+      // Adjust these values as needed for proper positioning/sizing
+      const imgWidth = 200, imgHeight = 200;
+      const xPos = canvas.width / 2 - imgWidth / 2;
+      const yPos = (4* canvas.height) / 6 - imgHeight / 2;
+      c.drawImage(shooterImageGreen, xPos - 450 , yPos, imgWidth, imgHeight);
+      c.drawImage(shooterImageBlue, xPos - 150, yPos, imgWidth, imgHeight);
+      c.drawImage(shooterImageRed, xPos + 150, yPos, imgWidth, imgHeight);
+      c.drawImage(shooterImageYellow, xPos + 450, yPos, imgWidth, imgHeight);
 
+    }
   const player = frontEndPlayers[socket.id];
   if (!player) return;
 
@@ -324,7 +349,16 @@ window.addEventListener('keyup', (event) => {
 
 document.querySelector('#usernameForm').addEventListener('submit', (event) => {
   event.preventDefault()
+  const username = document.querySelector('#usernameInput').value.trim();
+
+  if (!username) {
+    alert('Please enter a username.');
+    return;
+  }
+
   document.querySelector('#usernameForm').style.display = 'none'
   document.querySelector('#gameTitle').style.display = 'none'
+  document.querySelector('#instructionText').style.display = 'none'
+  document.querySelector('#leaderboard').style.display = 'block'
   socket.emit('initGame', {width: canvas.width, height: canvas.height, username: document.querySelector('#usernameInput').value})
 })

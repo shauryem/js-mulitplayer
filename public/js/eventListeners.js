@@ -2,6 +2,7 @@ const SHOOT_INTERVAL = 400; // in ms
 const BOOST_INTERVAL = 3000 // in ms 
 let lastShootTime = 0;
 let lastBoostTime = 0;
+let lastMouseMoveTime = 0;
 let isSpaceHeld = false;
 
 
@@ -22,7 +23,11 @@ addEventListener('mousemove', (event) => {
 
   // Update the player's rotation
   player.rotation = Math.atan2(mouseY - player.y, mouseX - player.x);
-  socket.emit('rotatePlayer', { rotation: player.rotation });
+  const now = Date.now();
+  if (now - lastMouseMoveTime >= 15) {
+    socket.emit('rotatePlayer', { rotation: player.rotation });
+    lastMouseMoveTime = now;
+  }
 });
 
 addEventListener('click', (event) => {
@@ -45,12 +50,14 @@ addEventListener('click', (event) => {
 
   // Calculate the angle relative to the player's position
   const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
-
+  const gunLength = 30;
+  player.rotation = angle;
+  socket.emit('rotatePlayer', { rotation: player.rotation });
   lastShootTime = currentTime;
   // Emit shooting event with correct angle
   socket.emit('shoot', {
-    x: player.x,
-    y: player.y,
+    x: player.x + gunLength * Math.cos(angle),
+    y: player.y + (gunLength * Math.sin(angle)) ,
     angle
   });
 });
