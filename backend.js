@@ -144,7 +144,10 @@ setInterval(() => {
     );
 
     // Remove projectiles that go outside the fixed map boundaries
-    let maxProjectileRange = Math.min(BASE_PROJECTILE_RANGE + (backEndPlayers[backEndProjectiles[id].playerId].satellites.length * 50), MAX_PROJECTILE_RANGE) ;
+    let maxProjectileRange = MAX_PROJECTILE_RANGE;
+    if (backEndPlayers[backEndProjectiles[id].playerId]) {
+      maxProjectileRange = Math.min(BASE_PROJECTILE_RANGE + (backEndPlayers[backEndProjectiles[id].playerId].satellites.length * 50), MAX_PROJECTILE_RANGE) ;
+    }
     if (distanceTraveled > maxProjectileRange) {
       delete backEndProjectiles[id];
       continue;
