@@ -170,9 +170,7 @@ socket.on('updatePlayers', (backEndPlayers) => {
       if (id === socket.id) {
         document.querySelector('#usernameForm').style.display = 'block'
         document.querySelector('#gameTitle').style.display = 'block'
-        document.querySelector('#instructionText').style.display = 'block'
-
-
+        document.querySelector('#instructionText ').style.display = 'block'
       }
       delete frontEndPlayers[id]
     }

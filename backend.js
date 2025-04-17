@@ -111,7 +111,9 @@ io.on('connection', (socket) => {
   })
 
   socket.on('rotatePlayer', ({rotation}) => {
-    backEndPlayers[socket.id].rotation = rotation;
+    if (backEndPlayers[socket.id]) {
+      backEndPlayers[socket.id].rotation = rotation;
+    }
   })
 
   socket.on('boost', () => {
